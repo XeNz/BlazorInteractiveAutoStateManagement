@@ -1,0 +1,81 @@
+﻿@page "/weather"
+@using Shared
+@using System.Collections.Concurrent
+@using System.Globalization
+@attribute [StreamRendering]
+@rendermode InteractiveAuto
+@inject IWeatherForecastService WeatherForecastService
+@inject PersistentComponentState ApplicationState
+@implements IDisposable
+
+<PageTitle>Weather</PageTitle>
+
+@if (_forecasts.Count == 0)
+{
+    <p>
+        <em>Loading...</em>
+    </p>
+}
+else
+{
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Temp. (C)</th>
+            <th>Temp. (F)</th>
+            <th>Summary</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var forecast in _forecasts)
+        {
+            <tr>
+                <td>@forecast.Date.ToString(CultureInfo.InvariantCulture)</td>
+                <td>@forecast.TemperatureC</td>
+                <td>@forecast.TemperatureF</td>
+                <td>@forecast.Summary</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<WeatherForecast> _forecasts = [];
+    private PersistingComponentStateSubscription _subscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _subscription = ApplicationState.RegisterOnPersisting(Persist);
+        var foundInState = ApplicationState.TryTakeFromJson<List<WeatherForecast>>("weather", out var forecasts);
+
+        if (foundInState)
+        {
+            _forecasts = forecasts!;
+            Console.WriteLine($"{DateTime.Now:O} Took forecast from storage");
+        }
+        else
+        {
+            Console.WriteLine($"{DateTime.Now:O} Took forecast from service");
+
+            Console.WriteLine(WeatherForecastService is ClientWeatherForecastService
+                ? $"{DateTime.Now:O} Client forecast service"
+                : $"{DateTime.Now:O} Server forecast service");
+                await foreach (var forecast in WeatherForecastService.GetAllAsync())
+                {
+                    _forecasts.Add(forecast);
+                    StateHasChanged();
+                }
+        }
+    }
+
+    private Task Persist()
+    {
+        Console.WriteLine($"{DateTime.Now:O} Persisting state");
+        ApplicationState.PersistAsJson("weather", _forecasts);
+        return Task.CompletedTask;
+    }
+
+    public void Dispose() => _subscription.Dispose();
+}

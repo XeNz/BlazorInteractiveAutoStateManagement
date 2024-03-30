@@ -1,0 +1,61 @@
+@page "/dumbweather"
+@using Shared
+@using System.Globalization
+@attribute [StreamRendering]
+@rendermode InteractiveAuto
+@inject IWeatherForecastService WeatherForecastService
+
+<PageTitle>Weather</PageTitle>
+
+@if (_forecasts.Count == 0)
+{
+    <p>
+        <em>Loading...</em>
+    </p>
+}
+else
+{
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Temp. (C)</th>
+            <th>Temp. (F)</th>
+            <th>Summary</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var forecast in _forecasts)
+        {
+            <tr>
+                <td>@forecast.Date.ToString(CultureInfo.InvariantCulture)</td>
+                <td>@forecast.TemperatureC</td>
+                <td>@forecast.TemperatureF</td>
+                <td>@forecast.Summary</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private readonly List<WeatherForecast> _forecasts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        {
+            Console.WriteLine($"{DateTime.Now:O} Took forecast from service");
+
+            Console.WriteLine(WeatherForecastService is ClientWeatherForecastService
+                ? $"{DateTime.Now:O} Client forecast service"
+                : $"{DateTime.Now:O} Server forecast service");
+
+            await foreach (var forecast in WeatherForecastService.GetAllAsync())
+            {
+                _forecasts.Add(forecast);
+                StateHasChanged();
+            }
+        }
+    }
+
+}
